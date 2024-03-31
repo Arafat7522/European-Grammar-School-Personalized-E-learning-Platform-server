@@ -52,6 +52,10 @@ function run() {
     // getting all users along with average rating
     app.get("/users", async (req, res) => {
       const { searchTerm, page } = req?.query ?? {};
+      const pageNumber = parseInt(page) || 1;
+      const itemsPerPage = 20;
+      const skipCount = (pageNumber - 1) * itemsPerPage;
+
       const query = searchTerm
         ? {
             $or: [
@@ -60,8 +64,57 @@ function run() {
             ],
           }
         : {};
-      const result = await UsersCollection.find(query).toArray();
+
+      // Aggregation pipeline to calculate average rating
+      const pipeline = [
+        // Match users based on the query
+        { $match: query },
+        // Lookup reviews for each user
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "receiverId",
+            as: "reviews",
+          },
+        },
+        // Project fields to include in the result
+        {
+          $project: {
+            _id: 1,
+            firstName: 1,
+            lastName: 1,
+            bio: 1,
+            email: 1,
+            // Calculate average rating from reviews
+            averageRating: { $ifNull: [{ $avg: "$reviews.rating" }, 0] },
+          },
+        },
+        // Skip and limit for pagination
+        { $skip: skipCount },
+        { $limit: itemsPerPage },
+      ];
+
+      const result = await UsersCollection.aggregate(pipeline).toArray();
       res.send({ success: true, data: result });
+    });
+
+    // getting single user with id
+    app.get("/users/single/:userId", async (req, res) => {
+      const userId = req?.params?.userId;
+      const filter = { _id: new ObjectId(userId) };
+      const reviews = await ReviewCollection.aggregate([
+        { $match: { receiverId: userId } },
+        {
+          $group: {
+            _id: null, // Group all reviews together
+            averageRating: { $avg: "$rating" }, // Calculate the average rating
+          },
+        },
+      ]).toArray();
+      const result = await UsersCollection.findOne(filter);
+      result.averageRating = reviews[0]?.averageRating;
+      res.send({ success: true, message: "Successfully done", data: result });
     });
 
     // updating users
