@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const nodemailer = require("nodemailer");
 
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -86,6 +87,8 @@ function run() {
             lastName: 1,
             bio: 1,
             email: 1,
+            createdAt: 1,
+            photo: 1,
             // Calculate average rating from reviews
             averageRating: { $ifNull: [{ $avg: "$reviews.rating" }, 0] },
           },
@@ -95,7 +98,9 @@ function run() {
         { $limit: itemsPerPage },
       ];
 
-      const result = await UsersCollection.aggregate(pipeline).toArray();
+      const result = await UsersCollection.aggregate(pipeline)
+        .sort({ createdAt: -1 })
+        .toArray();
       res.send({ success: true, data: result });
     });
 
@@ -109,11 +114,13 @@ function run() {
           $group: {
             _id: null, // Group all reviews together
             averageRating: { $avg: "$rating" }, // Calculate the average rating
+            totalReviews: { $sum: 1 },
           },
         },
       ]).toArray();
       const result = await UsersCollection.findOne(filter);
-      result.averageRating = reviews[0]?.averageRating;
+      result.averageRating = reviews[0]?.averageRating || 0;
+      result.totalReviews = reviews[0]?.totalReviews || 0;
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
@@ -144,7 +151,6 @@ function run() {
     });
 
     // uploading/updating image of user
-    // getting single user
 
     // posting new feedback
     app.post("/reviews", async (req, res) => {
@@ -155,6 +161,30 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
+    // send email
+    app.post("/send-mail", async (req, res) => {
+      const { name, email, message } = req?.body ?? {};
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: "safwanridwan321@gmail.com",
+          pass: process.env.AUTH_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: email,
+        to: "safwanridwan321@gmail.com",
+        subject: `Message from Rating Profile`,
+        html: `
+        <p>Name: <strong>${name}</strong>.</p>
+        <p>${message}</p>
+      `,
+      };
+
+      const result = await await transporter.sendMail(mailOptions);
+      res.send({ success: true, message: "Message Sent", data: result });
+    });
     // posting a review
   } catch (err) {
     console.log(err);
