@@ -104,12 +104,12 @@ function run() {
       res.send({ success: true, data: result });
     });
 
-    // getting single user with id
-    app.get("/users/single/:userId", async (req, res) => {
-      const userId = req?.params?.userId;
-      const filter = { _id: new ObjectId(userId) };
+    // getting single user with email
+    app.get("/users/single/:email", async (req, res) => {
+      const email = req?.params?.email;
+      const filter = { email };
       const reviews = await ReviewCollection.aggregate([
-        { $match: { receiverId: userId } },
+        { $match: { receiverEmail: email } },
         {
           $group: {
             _id: null, // Group all reviews together
@@ -119,8 +119,10 @@ function run() {
         },
       ]).toArray();
       const result = await UsersCollection.findOne(filter);
-      result.averageRating = reviews[0]?.averageRating || 0;
-      result.totalReviews = reviews[0]?.totalReviews || 0;
+      result.averageRating = reviews?.length
+        ? reviews[0]?.averageRating || 0
+        : 0;
+      result.totalReviews = reviews?.length ? reviews[0]?.totalReviews || 0 : 0;
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
@@ -158,7 +160,30 @@ function run() {
 
       payload.createdAt = new Date();
       const result = await ReviewCollection.insertOne(payload);
+      if (result) {
+        const filter = { email: payload?.receiverEmail };
+        const updatedDocument = {
+          $inc: {
+            totalRating: parseInt(payload?.rating),
+            reviewer: 1,
+          },
+        };
+        const options = { upersert: true };
+
+        await UsersCollection.updateOne(filter, updatedDocument, options);
+      }
       res.send({ success: true, message: "Successfully done", data: result });
+    });
+
+    // getting feedback for a single user with email
+    app.get("/reviews/:email", async (req, res) => {
+      const email = req?.params?.email;
+      const filter = { receiverEmail: email };
+      const result = await ReviewCollection.find(filter)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.send({ success: true, data: result });
     });
 
     // send email
@@ -184,6 +209,39 @@ function run() {
 
       const result = await await transporter.sendMail(mailOptions);
       res.send({ success: true, message: "Message Sent", data: result });
+    });
+
+    // getting top rated prfile
+    app.get("/users/top-rated", async (req, res) => {
+      const result = await UsersCollection.aggregate([
+        // Calculate the average rating
+        {
+          $addFields: {
+            averageRating: { $divide: ["$totalRating", "$reviewer"] },
+          },
+        },
+        // Sort users by average rating in descending order
+        { $sort: { averageRating: -1 } },
+        // Limit to 5 users
+        { $limit: 7 },
+      ]).toArray();
+      res.send({ success: true, data: result[0] || null });
+    });
+    // getting suggested profile
+    app.get("/users/suggested", async (req, res) => {
+      const result = await UsersCollection.aggregate([
+        // Calculate the average rating
+        {
+          $addFields: {
+            averageRating: { $divide: ["$totalRating", "$reviewer"] },
+          },
+        },
+        // Sort users by average rating in descending order
+        { $sort: { createdAt: -1 } },
+        // Limit to 5 users
+        { $limit: 7 },
+      ]).toArray();
+      res.send({ success: true, data: result[0] || null });
     });
     // posting a review
   } catch (err) {
