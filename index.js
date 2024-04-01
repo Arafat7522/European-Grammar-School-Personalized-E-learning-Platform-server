@@ -89,6 +89,8 @@ function run() {
             email: 1,
             createdAt: 1,
             photo: 1,
+            totalRating: 1,
+            reviewer: 1,
             // Calculate average rating from reviews
             averageRating: { $ifNull: [{ $avg: "$reviews.rating" }, 0] },
           },
@@ -97,11 +99,17 @@ function run() {
         { $skip: skipCount },
         { $limit: itemsPerPage },
       ];
-
+      const countQuery = await UsersCollection.find({}).toArray();
       const result = await UsersCollection.aggregate(pipeline)
         .sort({ createdAt: -1 })
         .toArray();
-      res.send({ success: true, data: result });
+      res.send({
+        success: true,
+        total: countQuery?.length || 0,
+        page: page || 1,
+        limit: itemsPerPage,
+        data: result,
+      });
     });
 
     // getting single user with email
@@ -119,10 +127,14 @@ function run() {
         },
       ]).toArray();
       const result = await UsersCollection.findOne(filter);
-      result.averageRating = reviews?.length
-        ? reviews[0]?.averageRating || 0
-        : 0;
-      result.totalReviews = reviews?.length ? reviews[0]?.totalReviews || 0 : 0;
+      if (result) {
+        result.averageRating = reviews?.length
+          ? reviews[0]?.averageRating || 0
+          : 0;
+        result.totalReviews = reviews?.length
+          ? reviews[0]?.totalReviews || 0
+          : 0;
+      }
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
@@ -183,7 +195,7 @@ function run() {
         .sort({ createdAt: -1 })
         .toArray();
 
-      res.send({ success: true, data: result });
+      res.send({ success: true, message: "Success!", data: result });
     });
 
     // send email
@@ -225,7 +237,7 @@ function run() {
         // Limit to 5 users
         { $limit: 7 },
       ]).toArray();
-      res.send({ success: true, data: result[0] || null });
+      res.send({ success: true, data: result });
     });
     // getting suggested profile
     app.get("/users/suggested", async (req, res) => {
@@ -241,7 +253,7 @@ function run() {
         // Limit to 5 users
         { $limit: 7 },
       ]).toArray();
-      res.send({ success: true, data: result[0] || null });
+      res.send({ success: true, data: result });
     });
     // posting a review
   } catch (err) {
