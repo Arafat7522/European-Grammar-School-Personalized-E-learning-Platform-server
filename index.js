@@ -8,6 +8,11 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = process.env.DB_URL;
 // const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@madamtrails.6ckcarh.mongodb.net/?retryWrites=true&w=majority`;
 
+const multer = require("multer");
+const cloudinary = require("cloudinary");
+const storage = multer.diskStorage({});
+
+const upload = multer({ storage });
 const app = express();
 
 // middlewares
@@ -256,9 +261,32 @@ function run() {
       res.send({ success: true, data: result });
     });
     // posting a review
+
+    cloudinary.v2.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    // updating or posting an image on profile
+    app.post("/users/upload", upload.single("image"), async (req, res) => {
+      const email = req?.query?.email;
+      const file = req?.file;
+      console.log(file);
+      if (!file) {
+        return res.send({ success: false, message: "Something went wrong" });
+      }
+
+      const result = await cloudinary.v2.uploader.upload(file.path);
+      const user = await UsersCollection.updateOne(
+        { email },
+        { $set: { photo: result?.secure_url } },
+        { upsert: true }
+      );
+
+      res.send({ success: true, message: "Successfully Uploaded", data: user });
+    });
   } catch (err) {
     console.log(err);
-    res.send;
   }
 }
 run();
