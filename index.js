@@ -169,6 +169,18 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
+    // updating privacy  status of a user's profile
+    app.get("/users/hide", async (req, res) => {
+      const email = req?.query?.email;
+      const hideStatus = req?.query?.isHide === "true" ? true : false;
+
+      const result = await UsersCollection.updateOne(
+        { email },
+        { $set: { isHidden: hideStatus } }
+      );
+      res.send({ success: true, message: "Privacy Updated", data: result });
+    });
+
     // uploading/updating image of user
 
     // posting new feedback
@@ -219,12 +231,12 @@ function run() {
         to: "safwanridwan321@gmail.com",
         subject: `Message from Rating Profile`,
         html: `
-        <p>Name: <strong>${name}</strong>.</p>
+        <p>Name: <strong>${name} - ${email}</strong>.</p>
         <p>${message}</p>
       `,
       };
 
-      const result = await await transporter.sendMail(mailOptions);
+      const result = await transporter.sendMail(mailOptions);
       res.send({ success: true, message: "Message Sent", data: result });
     });
 
