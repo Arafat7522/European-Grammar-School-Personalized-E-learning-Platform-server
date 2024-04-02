@@ -55,6 +55,22 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
+    // getting user search suggestions
+    app.get("/users/search-suggestion", async (req, res) => {
+      const tag = req?.query?.tag;
+      const result = await UsersCollection.find({
+        $or: [
+          { firstName: { $regex: new RegExp(tag, "i") } },
+          { lastName: { $regex: new RegExp(tag, "i") } },
+        ],
+      })
+        .project({ firstName: 1, lastName: 1 })
+        .limit(4)
+        .toArray();
+
+      res.send({ success: true, message: "Success", data: result });
+    });
+
     // getting all users along with average rating
     app.get("/users", async (req, res) => {
       const { searchTerm, page } = req?.query ?? {};
