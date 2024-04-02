@@ -299,16 +299,16 @@ function run() {
     app.post("/users/upload", upload.single("image"), async (req, res) => {
       const email = req?.query?.email;
       const file = req?.file;
-      console.log(file);
+
       if (!file) {
         return res.send({ success: false, message: "Something went wrong" });
       }
 
       const result = await cloudinary.v2.uploader.upload(file.path);
-      const user = await UsersCollection.updateOne(
+      const user = await UsersCollection.findOneAndUpdate(
         { email },
         { $set: { photo: result?.secure_url } },
-        { upsert: true }
+        { upsert: true, new: true }
       );
 
       res.send({ success: true, message: "Successfully Uploaded", data: user });
