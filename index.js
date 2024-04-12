@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
-const axios = require("axios");
 
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -314,58 +313,6 @@ function run() {
 
       res.send({ success: true, message: "Successfully Uploaded", data: user });
     });
-
-    // getting request for retrieving twitter friends from server side
-    app.get("/twitter/friends", async (req, res) => {
-      try {
-        const accessToken = req?.headers?.authorization?.split(" ")[1];
-        const userId = req?.query?.userId;
-
-        const bearerTokenCredentials = `${encodeURIComponent(
-          process.env.X_api_token
-        )}:${encodeURIComponent(process.env.X_api_secret)}`;
-        const base64EncodedCredentials = Buffer.from(
-          bearerTokenCredentials
-        ).toString("base64");
-
-        const tokenObject = await axios.post(
-          "https://api.twitter.com/oauth2/token",
-          "grant_type=client_credentials",
-          {
-            headers: {
-              Authorization: `Basic ${base64EncodedCredentials}`,
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            },
-          }
-        );
-        console.log(tokenObject?.data?.access_token);
-
-        const response = await axios.get(
-          // `https://api.twitter.com/1.1/friends/list.json?user_id=${userId}`,
-          `https://api.twitter.com/2/users/${userId}/following`,
-          {
-            headers: {
-              Authorization: `Bearer ${tokenObject?.data?.access_token}`,
-            },
-          }
-        );
-        console.log(response);
-        const data = await response.data;
-
-        res.send({
-          success: true,
-          message: "Friends list retreived!",
-          data,
-        });
-      } catch (error) {
-        res.send({
-          success: false,
-          message: error.message || "Something went wrong!",
-          data: error,
-        });
-      }
-    });
-    // test cases
   } catch (err) {
     console.log(err);
   }
