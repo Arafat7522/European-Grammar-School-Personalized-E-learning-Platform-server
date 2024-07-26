@@ -120,60 +120,6 @@ function run() {
       res.send({ success: true, message: "Message Sent", data: result });
     });
 
-    // Inviting to the subject
-    app.post("/invite", async (req, res) => {
-      const { classId, subjectId, classTitle, subjectTitle, email, role } =
-        req?.body;
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: "safwanridwan321@gmail.com",
-          pass: process.env.AUTH_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: "safwanridwan321@gmail.com",
-        to: email,
-        subject: `Invitation received`,
-        html: `
-        <p>You have been invitated to join the following subject of the class.</p>
-        <p>Class: <strong>${classTitle}</strong>.</p>
-        <p>Subject: <strong>${subjectTitle}</strong>.</p>
-        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
-      `,
-      };
-
-      const result = await transporter.sendMail(mailOptions);
-      res.send({ success: true, message: "Message Sent", data: result });
-    });
-
-    // accepting invitation
-    app.post("/accept-invitation", async (req, res) => {
-      const { classId, subjectId, classTitle, subjectTitle, role, email } =
-        req?.body;
-      // let result;
-      // if(role === "teacher"){
-      //   result = await MembershipCollection.insertOne(req?.body)
-      // }else{
-      //   result = await member
-      // }
-      if (
-        !(classId && subjectId && classTitle && subjectTitle && role && email)
-      ) {
-        return res.send({
-          success: false,
-          message: "Something went wrong! Ask for another invitation.",
-        });
-      }
-      const result = await MembershipCollection.insertOne(req?.body);
-      res.send({
-        success: false,
-        message: "Invitation accepted",
-        data: result,
-      });
-    });
-
     cloudinary.v2.config({
       cloud_name: process.env.CLOUDINARY_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
@@ -273,6 +219,99 @@ function run() {
       res.send({
         success: true,
         message: "Subject found",
+        data: result,
+      });
+    });
+
+    // memberships
+    // Inviting to the subject
+    app.post("/invite", async (req, res) => {
+      const { classId, subjectId, classTitle, subjectTitle, email, role } =
+        req?.body;
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: "safwanridwan321@gmail.com",
+          pass: process.env.AUTH_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: "safwanridwan321@gmail.com",
+        to: email,
+        subject: `Invitation received`,
+        html: `
+        <p>You have been invitated to join the following subject of the class.</p>
+        <p>Class: <strong>${classTitle}</strong>.</p>
+        <p>Subject: <strong>${subjectTitle}</strong>.</p>
+        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
+      `,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      res.send({ success: true, message: "Message Sent", data: result });
+    });
+
+    // accepting invitation
+    app.post("/accept-invitation", async (req, res) => {
+      const { classId, subjectId, classTitle, subjectTitle, role, email } =
+        req?.body;
+
+      const subject = await SubjectsCollection.findOne({
+        _id: new ObjectId(subjectId),
+      });
+      await (req.body.subjectDescription = subject?.description);
+
+      if (
+        !(classId && subjectId && classTitle && subjectTitle && role && email)
+      ) {
+        return res.send({
+          success: false,
+          message: "Something went wrong! Ask for another invitation.",
+        });
+      }
+      const result = await MembershipCollection.insertOne(req?.body);
+      res.send({
+        success: true,
+        message: "Invitation accepted",
+        data: result,
+      });
+    });
+
+    // getting role specific class list
+    app.get("/class/my-class/:email", async (req, res) => {
+      const email = req?.params?.email;
+      const pResult = await MembershipCollection.find({ email }).toArray();
+      let result = [];
+      await pResult.forEach((r) => {
+        if (!result?.length) {
+          result.push(r);
+        } else {
+          result.forEach((newR) => {
+            if (r?.classId != newR?.classId) {
+              result.push(r);
+            }
+          });
+        }
+      });
+      res.send({
+        success: true,
+        message: "Classes found",
+        data: result,
+      });
+    });
+
+    // getting role specific subject list
+    app.get("/class/:classId/my-subject/:email", async (req, res) => {
+      const email = req?.params?.email;
+      const classId = req?.params?.classId;
+      const result = await MembershipCollection.find({
+        email,
+        classId,
+      }).toArray();
+      res.send({
+        success: true,
+        message: "Classes found",
         data: result,
       });
     });
