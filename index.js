@@ -38,6 +38,7 @@ function run() {
     const UsersCollection = client.db("EGSPEP").collection("users");
     const ClassesCollection = client.db("EGSPEP").collection("classes");
     const SubjectsCollection = client.db("EGSPEP").collection("subjects");
+    const MembershipCollection = client.db("EGSPEP").collection("memberships");
     // test
     app.get("/", async (req, res) => {
       res.send({ success: true });
@@ -136,9 +137,10 @@ function run() {
         to: email,
         subject: `Invitation received`,
         html: `
+        <p>You have been invitated to join the following subject of the class.</p>
         <p>Class: <strong>${classTitle}</strong>.</p>
         <p>Subject: <strong>${subjectTitle}</strong>.</p>
-        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept</a>
+        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
       `,
       };
 
@@ -148,8 +150,28 @@ function run() {
 
     // accepting invitation
     app.post("/accept-invitation", async (req, res) => {
-      const {classId} = req?.body;
-
+      const { classId, subjectId, classTitle, subjectTitle, role, email } =
+        req?.body;
+      // let result;
+      // if(role === "teacher"){
+      //   result = await MembershipCollection.insertOne(req?.body)
+      // }else{
+      //   result = await member
+      // }
+      if (
+        !(classId && subjectId && classTitle && subjectTitle && role && email)
+      ) {
+        return res.send({
+          success: false,
+          message: "Something went wrong! Ask for another invitation.",
+        });
+      }
+      const result = await MembershipCollection.insertOne(req?.body);
+      res.send({
+        success: false,
+        message: "Invitation accepted",
+        data: result,
+      });
     });
 
     cloudinary.v2.config({
