@@ -35,8 +35,9 @@ function run() {
     console.log("mongodb connected successfully");
 
     // collections
-    const UsersCollection = client.db("rating-profile").collection("users");
-    const ReviewCollection = client.db("rating-profile").collection("reviews");
+    const UsersCollection = client.db("EGSPEP").collection("users");
+    const ClassesCollection = client.db("EGSPEP").collection("classes");
+    const SubjectsCollection = client.db("EGSPEP").collection("subjects");
     // test
     app.get("/", async (req, res) => {
       res.send({ success: true });
@@ -55,107 +56,13 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
-    // getting user search suggestions
-    app.get("/users/search-suggestion", async (req, res) => {
-      const tag = req?.query?.tag;
-      const result = await UsersCollection.find({
-        $or: [
-          { firstName: { $regex: new RegExp(tag, "i") } },
-          { lastName: { $regex: new RegExp(tag, "i") } },
-        ],
-      })
-        .project({ firstName: 1, lastName: 1 })
-        .limit(4)
-        .toArray();
-
-      res.send({ success: true, message: "Success", data: result });
-    });
-
-    // getting all users along with average rating
-    app.get("/users", async (req, res) => {
-      const { searchTerm, page } = req?.query ?? {};
-      const pageNumber = parseInt(page) || 1;
-      const itemsPerPage = 20;
-      const skipCount = (pageNumber - 1) * itemsPerPage;
-
-      const query = searchTerm
-        ? {
-            $or: [
-              { firstName: { $regex: new RegExp(searchTerm, "i") } },
-              { lastName: { $regex: new RegExp(searchTerm, "i") } },
-            ],
-          }
-        : {};
-
-      // Aggregation pipeline to calculate average rating
-      const pipeline = [
-        // Match users based on the query
-        { $match: query },
-        // Lookup reviews for each user
-        {
-          $lookup: {
-            from: "reviews",
-            localField: "_id",
-            foreignField: "receiverId",
-            as: "reviews",
-          },
-        },
-        // Project fields to include in the result
-        {
-          $project: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            bio: 1,
-            email: 1,
-            createdAt: 1,
-            photo: 1,
-            totalRating: 1,
-            reviewer: 1,
-            // Calculate average rating from reviews
-            averageRating: { $ifNull: [{ $avg: "$reviews.rating" }, 0] },
-          },
-        },
-        // Skip and limit for pagination
-        { $skip: skipCount },
-        { $limit: itemsPerPage },
-      ];
-      const countQuery = await UsersCollection.find({}).toArray();
-      const result = await UsersCollection.aggregate(pipeline)
-        .sort({ createdAt: -1 })
-        .toArray();
-      res.send({
-        success: true,
-        total: countQuery?.length || 0,
-        page: page || 1,
-        limit: itemsPerPage,
-        data: result,
-      });
-    });
-
     // getting single user with email
     app.get("/users/single/:email", async (req, res) => {
       const email = req?.params?.email;
       const filter = { email };
-      const reviews = await ReviewCollection.aggregate([
-        { $match: { receiverEmail: email } },
-        {
-          $group: {
-            _id: null, // Group all reviews together
-            averageRating: { $avg: "$rating" }, // Calculate the average rating
-            totalReviews: { $sum: 1 },
-          },
-        },
-      ]).toArray();
+
       const result = await UsersCollection.findOne(filter);
-      if (result) {
-        result.averageRating = reviews?.length
-          ? reviews[0]?.averageRating || 0
-          : 0;
-        result.totalReviews = reviews?.length
-          ? reviews[0]?.totalReviews || 0
-          : 0;
-      }
+
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
@@ -185,51 +92,7 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
-    // updating privacy  status of a user's profile
-    app.get("/users/hide", async (req, res) => {
-      const email = req?.query?.email;
-      const hideStatus = req?.query?.isHide === "true" ? true : false;
-
-      const result = await UsersCollection.updateOne(
-        { email },
-        { $set: { isHidden: hideStatus } }
-      );
-      res.send({ success: true, message: "Privacy Updated", data: result });
-    });
-
     // uploading/updating image of user
-
-    // posting new feedback
-    app.post("/reviews", async (req, res) => {
-      const payload = req?.body;
-
-      payload.createdAt = new Date();
-      const result = await ReviewCollection.insertOne(payload);
-      if (result) {
-        const filter = { email: payload?.receiverEmail };
-        const updatedDocument = {
-          $inc: {
-            totalRating: parseInt(payload?.rating),
-            reviewer: 1,
-          },
-        };
-        const options = { upersert: true };
-
-        await UsersCollection.updateOne(filter, updatedDocument, options);
-      }
-      res.send({ success: true, message: "Successfully done", data: result });
-    });
-
-    // getting feedback for a single user with email
-    app.get("/reviews/:email", async (req, res) => {
-      const email = req?.params?.email;
-      const filter = { receiverEmail: email };
-      const result = await ReviewCollection.find(filter)
-        .sort({ createdAt: -1 })
-        .toArray();
-
-      res.send({ success: true, message: "Success!", data: result });
-    });
 
     // send email
     app.post("/send-mail", async (req, res) => {
@@ -256,39 +119,38 @@ function run() {
       res.send({ success: true, message: "Message Sent", data: result });
     });
 
-    // getting top rated prfile
-    app.get("/users/top-rated", async (req, res) => {
-      const result = await UsersCollection.aggregate([
-        // Calculate the average rating
-        {
-          $addFields: {
-            averageRating: { $divide: ["$totalRating", "$reviewer"] },
-          },
+    // Inviting to the subject
+    app.post("/invite", async (req, res) => {
+      const { classId, subjectId, classTitle, subjectTitle, email, role } =
+        req?.body;
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: "safwanridwan321@gmail.com",
+          pass: process.env.AUTH_PASS,
         },
-        // Sort users by average rating in descending order
-        { $sort: { averageRating: -1 } },
-        // Limit to 5 users
-        { $limit: 7 },
-      ]).toArray();
-      res.send({ success: true, data: result });
+      });
+
+      const mailOptions = {
+        from: "safwanridwan321@gmail.com",
+        to: email,
+        subject: `Invitation received`,
+        html: `
+        <p>Class: <strong>${classTitle}</strong>.</p>
+        <p>Subject: <strong>${subjectTitle}</strong>.</p>
+        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept</a>
+      `,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      res.send({ success: true, message: "Message Sent", data: result });
     });
-    // getting suggested profile
-    app.get("/users/suggested", async (req, res) => {
-      const result = await UsersCollection.aggregate([
-        // Calculate the average rating
-        {
-          $addFields: {
-            averageRating: { $divide: ["$totalRating", "$reviewer"] },
-          },
-        },
-        // Sort users by average rating in descending order
-        { $sort: { createdAt: -1 } },
-        // Limit to 5 users
-        { $limit: 7 },
-      ]).toArray();
-      res.send({ success: true, data: result });
+
+    // accepting invitation
+    app.post("/accept-invitation", async (req, res) => {
+      const {classId} = req?.body;
+
     });
-    // posting a review
 
     cloudinary.v2.config({
       cloud_name: process.env.CLOUDINARY_NAME,
@@ -312,6 +174,85 @@ function run() {
       );
 
       res.send({ success: true, message: "Successfully Uploaded", data: user });
+    });
+
+    // class related routes and controllers
+    app.post("/class/create", async (req, res) => {
+      const newClass = req?.body;
+      const result = await ClassesCollection.insertOne(newClass);
+      res.send({
+        success: true,
+        message: "Created Successfully",
+        data: result,
+      });
+    });
+
+    // getting all the classes
+    app.get("/class/all", async (req, res) => {
+      const result = await ClassesCollection.find({}).toArray();
+      res.send({
+        success: true,
+        message: "Found Successfully",
+        data: result,
+      });
+    });
+
+    // getting single class
+    app.get("/class/single/:classId", async (req, res) => {
+      const classId = req?.params?.classId;
+      const result = await ClassesCollection.findOne({
+        _id: new ObjectId(classId),
+      });
+
+      res.send({ success: true, message: "Found Successfully", data: result });
+    });
+
+    // Subject related routes and controllers
+    app.post("/subject/create", async (req, res) => {
+      const classId = req?.body?.classId;
+      const newSubject = req?.body;
+
+      const classExist = await ClassesCollection.findOne({
+        _id: new ObjectId(classId),
+      });
+      if (!classExist) {
+        return res.send({
+          success: false,
+          message: "Class does not exist",
+          data: null,
+        });
+      }
+
+      const result = await SubjectsCollection.insertOne(newSubject);
+      res.send({
+        success: true,
+        message: "Created Successfully",
+        data: result,
+      });
+    });
+
+    // all subjects for single class
+    app.get("/class/:classId/subjects", async (req, res) => {
+      const classId = req?.params?.classId;
+      const result = await SubjectsCollection.find({ classId }).toArray();
+      res.send({
+        success: true,
+        message: "Subjects found",
+        data: result,
+      });
+    });
+    // getting single subject
+    app.get("/subject/single/:subjectId", async (req, res) => {
+      const subjectId = req?.params?.subjectId;
+      const result = await SubjectsCollection.findOne({
+        _id: new ObjectId(subjectId),
+      });
+
+      res.send({
+        success: true,
+        message: "Subject found",
+        data: result,
+      });
     });
   } catch (err) {
     console.log(err);
