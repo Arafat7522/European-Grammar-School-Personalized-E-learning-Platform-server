@@ -9,10 +9,14 @@ const uri = process.env.DB_URL;
 // const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@madamtrails.6ckcarh.mongodb.net/?retryWrites=true&w=majority`;
 
 const multer = require("multer");
-const cloudinary = require("cloudinary");
-const storage = multer.diskStorage({});
+// const storage = multer.diskStorage({});
+// const upload = multer({ storage });
+const upload = multer({
+  storage: multer.diskStorage({}),
+  limits: { fileSize: 500000 },
+});
 
-const upload = multer({ storage });
+const cloudinary = require("cloudinary");
 const app = express();
 
 // middlewares
@@ -39,6 +43,12 @@ function run() {
     const ClassesCollection = client.db("EGSPEP").collection("classes");
     const SubjectsCollection = client.db("EGSPEP").collection("subjects");
     const MembershipCollection = client.db("EGSPEP").collection("memberships");
+    const MaterialCollection = client.db("EGSPEP").collection("materials");
+    const ClassWorkCollection = client.db("EGSPEP").collection("classworks");
+    const ClassWorkSubmissionCollection = client
+      .db("EGSPEP")
+      .collection("classworksubmissions");
+
     // test
     app.get("/", async (req, res) => {
       res.send({ success: true });
@@ -118,30 +128,6 @@ function run() {
 
       const result = await transporter.sendMail(mailOptions);
       res.send({ success: true, message: "Message Sent", data: result });
-    });
-
-    cloudinary.v2.config({
-      cloud_name: process.env.CLOUDINARY_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
-    // updating or posting an image on profile
-    app.post("/users/upload", upload.single("image"), async (req, res) => {
-      const email = req?.query?.email;
-      const file = req?.file;
-
-      if (!file) {
-        return res.send({ success: false, message: "Something went wrong" });
-      }
-
-      const result = await cloudinary.v2.uploader.upload(file.path);
-      const user = await UsersCollection.findOneAndUpdate(
-        { email },
-        { $set: { photo: result?.secure_url } },
-        { upsert: true, new: true }
-      );
-
-      res.send({ success: true, message: "Successfully Uploaded", data: user });
     });
 
     // class related routes and controllers
@@ -315,6 +301,198 @@ function run() {
         data: result,
       });
     });
+
+    // Class Materials
+    cloudinary.v2.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    // uploading file to cloudinary
+    app.post("/upload-file", upload.single("file"), async (req, res) => {
+      const file = req?.file;
+
+      if (!file) {
+        return res.send({ success: false, message: "Something went wrong" });
+      }
+
+      const result = await cloudinary.v2.uploader.upload(file.path);
+      res.send({
+        success: true,
+        message: "Successfully Uploaded",
+        data: result,
+      });
+    });
+
+    // updating or posting an material
+    app.post("/material/create", async (req, res) => {
+      const {
+        classId,
+        classTitle,
+        subjectId,
+        subjectTitle,
+        materialText,
+        materialFile,
+        teacherEmail,
+      } = req?.body;
+      req.body.date = new Date();
+
+      const result = await MaterialCollection.insertOne(req?.body);
+      res.send({
+        success: true,
+        message: "Successfully created",
+        data: result,
+      });
+    });
+
+    // getting list of class materials for specific class and subject
+    app.get("/subject/:subjectId/material/all", async (req, res) => {
+      const subjectId = req?.params?.subjectId;
+      const result = await MaterialCollection.find({ subjectId })
+        .sort({ date: -1 })
+        .toArray();
+
+      res.send({
+        success: true,
+        message: "Successfully found",
+        data: result,
+      });
+    });
+
+    // Class works section
+    // Creatintg new class work
+    app.post("/class-work/create", async (req, res) => {
+      const {
+        classId,
+        classTitle,
+        subjectId,
+        subjectTitle,
+        instructionText,
+        instructionFile,
+        teacherEmail,
+        submissionDate,
+      } = req?.body;
+      req.body.date = new Date();
+
+      const result = await ClassWorkCollection.insertOne(req?.body);
+      res.send({
+        success: true,
+        message: "Successfully created",
+        data: result,
+      });
+    });
+
+    // getting list of class work
+    app.get("/subject/:subjectId/class-work/all", async (req, res) => {
+      const subjectId = req?.params?.subjectId;
+      const result = await ClassWorkCollection.find({ subjectId })
+        .sort({ submissionDate: -1 })
+        .toArray();
+
+      res.send({
+        success: true,
+        message: "Successfully found",
+        data: result,
+      });
+    });
+
+    // class work submission
+    app.post("/class-work/submission/create", async (req, res) => {
+      const {
+        classWorkId,
+        classId,
+        classTitle,
+        subjectId,
+        subjectTitle,
+        instructionText,
+        instructionFile,
+        teacherEmail,
+        studentEmail,
+        studentName,
+        studentId,
+        submissionDate,
+        submissionText,
+        submissionFile,
+      } = req?.body;
+      req.body.date = new Date();
+
+      const result = await ClassWorkSubmissionCollection.insertOne(req?.body);
+      res.send({
+        success: true,
+        message: "Successfully submitted",
+        data: result,
+      });
+    });
+
+    // getting single submission for student
+    app.get("/class-work/:classWorkId/submission/:email", async (req, res) => {
+      const classWorkId = req?.params?.classWorkId;
+      const email = req?.params?.email;
+
+      const result = await ClassWorkSubmissionCollection.findOne({
+        classWorkId,
+        studentEmail: email,
+      });
+
+      if (!result) {
+        return res.send({
+          success: false,
+          message: "Not found",
+        });
+      }
+
+      res.send({
+        success: true,
+        message: "Successfully found",
+        data: result,
+      });
+    });
+
+    // getting list of submission for specific class work
+    app.get("/class-work/:classWorkId/submission/all", async (req, res) => {
+      const classWorkId = req?.params?.classWorkId;
+
+      const result = await ClassWorkSubmissionCollection.find({
+        classWorkId,
+      })
+        .sort({ date: -1 })
+        .toArray();
+
+      res.send({
+        success: true,
+        message: "Successfully found",
+        data: result,
+      });
+    });
+
+    // Marking class work
+    app.put("/submission/:submissionId/mark", async (req, res) => {
+      const submissionId = req?.params?.submissionId;
+      const mark = Number(req?.query?.totalMark);
+
+      const result = await ClassWorkSubmissionCollection.findOneAndUpdate(
+        {
+          _id: new ObjectId(submissionId),
+        },
+        {
+          $set: {
+            mark: mark,
+          },
+        },
+        {
+          upsert: true,
+        }
+      );
+
+      res.send({
+        success: true,
+        message: "Successfully marked",
+        data: result,
+      });
+    });
+
+    // end of routes
   } catch (err) {
     console.log(err);
   }
