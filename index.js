@@ -48,6 +48,7 @@ function run() {
     const ClassWorkSubmissionCollection = client
       .db("EGSPEP")
       .collection("classworksubmissions");
+    const AttendenceCollection = client.db("EGSPEP").collection("attedence");
 
     // test
     app.get("/", async (req, res) => {
@@ -488,6 +489,60 @@ function run() {
       res.send({
         success: true,
         message: "Successfully marked",
+        data: result,
+      });
+    });
+
+    // attendence
+    // getting list of student for specific class>subject (invited)
+    app.get("/subject/:subjectId/student", async (req, res) => {
+      const subjectId = req?.params?.subjectId;
+      const result = await MembershipCollection.find({
+        subjectId,
+        role: "student",
+      }).toArray();
+
+      res.send({
+        success: true,
+        message: "Successfully found!",
+        data: result,
+      });
+    });
+    // recording attendence
+    app.post("/attendence/create", async (req, res) => {
+      const {
+        classId,
+        classTitle,
+        subjectId,
+        subjectTitle,
+        date,
+        teacherEmail,
+      } = req?.body;
+
+      if (!date) {
+        let d = new Date();
+        req.body.date =
+          d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
+      }
+
+      const result = await AttendenceCollection.insertOne(req?.body);
+      res.send({
+        success: true,
+        message: "Attendence recorded succesfully!",
+        data: result,
+      });
+    });
+    // attendence history
+    app.get("/subject/:subjectId/attendence/history", async (req, res) => {
+      // demo date - d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear()
+      // demo - dd/mm/yyyy
+      const date = req?.query?.date;
+      const subjectId = req?.params?.subjectId;
+
+      const result = await AttendenceCollection.findOne({ subjectId, date });
+      res.send({
+        success: true,
+        message: "Attendence found!",
         data: result,
       });
     });
