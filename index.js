@@ -366,7 +366,7 @@ function run() {
     app.get("/subject/:subjectId/class-work/all", async (req, res) => {
       const subjectId = req?.params?.subjectId;
       const result = await ClassWorkCollection.find({ subjectId })
-        .sort({ submissionDate: -1 })
+        .sort({ date: -1 })
         .toArray();
 
       res.send({
