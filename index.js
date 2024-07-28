@@ -57,13 +57,17 @@ function run() {
 
     // posting users
     app.post("/users", async (req, res) => {
-      const newUser = req.body;
+      const newUser = req?.body;
       const filter = { email: newUser.email };
       const exist = await UsersCollection.findOne(filter);
       if (exist) {
         return res.send({ success: false, message: "User already exists" });
       }
+
       newUser.createdAt = new Date();
+      if (!newUser?.role) {
+        newUser.role = "user";
+      }
       const result = await UsersCollection.insertOne(newUser);
       res.send({ success: true, message: "Successfully done", data: result });
     });
@@ -102,33 +106,6 @@ function run() {
         options
       );
       res.send({ success: true, message: "Successfully done", data: result });
-    });
-
-    // uploading/updating image of user
-
-    // send email
-    app.post("/send-mail", async (req, res) => {
-      const { name, email, message } = req?.body ?? {};
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: "safwanridwan321@gmail.com",
-          pass: process.env.AUTH_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: email,
-        to: "safwanridwan321@gmail.com",
-        subject: `Message from Rating Profile`,
-        html: `
-        <p>Name: <strong>${name} - ${email}</strong>.</p>
-        <p>${message}</p>
-      `,
-      };
-
-      const result = await transporter.sendMail(mailOptions);
-      res.send({ success: true, message: "Message Sent", data: result });
     });
 
     // class related routes and controllers
@@ -247,7 +224,7 @@ function run() {
       const subject = await SubjectsCollection.findOne({
         _id: new ObjectId(subjectId),
       });
-      await (req.body.subjectDescription = subject?.description);
+      await (req.body.description = subject?.description);
 
       if (
         !(classId && subjectId && classTitle && subjectTitle && role && email)
@@ -313,6 +290,7 @@ function run() {
     // uploading file to cloudinary
     app.post("/upload-file", upload.single("file"), async (req, res) => {
       const file = req?.file;
+      console.log(file);
 
       if (!file) {
         return res.send({ success: false, message: "Something went wrong" });
