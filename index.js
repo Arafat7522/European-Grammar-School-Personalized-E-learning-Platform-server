@@ -376,6 +376,20 @@ function run() {
       });
     });
 
+    // getting single class work
+    app.get("/class-work/single/:classWorkId", async (req, res) => {
+      const classWorkId = req?.params?.classWorkId;
+      const result = await ClassWorkCollection.findOne({
+        _id: new ObjectId(classWorkId),
+      });
+
+      res.send({
+        success: true,
+        message: "Successfully found",
+        data: result,
+      });
+    });
+
     // class work submission
     app.post("/class-work/submission/create", async (req, res) => {
       const {
