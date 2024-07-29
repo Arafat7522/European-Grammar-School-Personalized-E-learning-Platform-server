@@ -489,9 +489,15 @@ function run() {
     // getting list of student for specific class>subject (invited)
     app.get("/subject/:subjectId/student", async (req, res) => {
       const subjectId = req?.params?.subjectId;
-      const result = await MembershipCollection.find({
+      const members = await MembershipCollection.find({
         subjectId,
         role: "student",
+      }).toArray();
+
+      const emails = await members.map((member) => member?.email);
+
+      const result = await UsersCollection.find({
+        email: { $in: emails },
       }).toArray();
 
       res.send({
@@ -515,6 +521,17 @@ function run() {
         let d = new Date();
         req.body.date =
           d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
+      }
+
+      const alreadyExist = await AttendenceCollection.findOne({
+        date: req?.body?.date,
+      });
+      if (alreadyExist) {
+        return res.send({
+          success: false,
+          message: "Attendence recorded once!",
+          data: null,
+        });
       }
 
       const result = await AttendenceCollection.insertOne(req?.body);
