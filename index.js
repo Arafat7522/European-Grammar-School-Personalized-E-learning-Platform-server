@@ -443,7 +443,7 @@ function run() {
     });
 
     // getting list of submission for specific class work
-    app.get("/class-work/:classWorkId/submission/all", async (req, res) => {
+    app.get("/class-work/:classWorkId/submissions/all", async (req, res) => {
       const classWorkId = req?.params?.classWorkId;
 
       const result = await ClassWorkSubmissionCollection.find({
