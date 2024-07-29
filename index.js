@@ -82,6 +82,14 @@ function run() {
       res.send({ success: true, message: "Successfully done", data: result });
     });
 
+    // getting user with _id
+    app.get("/users/single", async (req, res) => {
+      const id = req?.query?.id;
+      const result = await UsersCollection.findOne({ _id: new ObjectId(id) });
+
+      res.send({ success: true, message: "Successfully found", data: result });
+    });
+
     // updating users
     app.put("/users", async (req, res) => {
       const email = req?.query?.email;
@@ -548,11 +556,33 @@ function run() {
       const date = req?.query?.date;
       const subjectId = req?.params?.subjectId;
 
-      const result = await AttendenceCollection.findOne({ subjectId, date });
+      const attendence = await AttendenceCollection.findOne({
+        subjectId,
+        date,
+      });
+      if (!attendence) {
+        return res.send({
+          success: true,
+          message: "Attendence was not recorded!",
+          data: null,
+        });
+      }
+      // const ObjKeys = await Object.keys(attendence);
+      // let ids = [];
+      // await ObjKeys.forEach((key) => {
+      //   if (/^[a-fA-F0-9]{24}$/.test(key)) {
+      //     ids.push(key);
+      //   }
+      // });
+
+      // const result = await UsersCollection.find({
+      //   _id: { $in: new ObjectId(ids) },
+      // }).toArray();
+
       res.send({
         success: true,
         message: "Attendence found!",
-        data: result,
+        data: attendence,
       });
     });
 
