@@ -213,7 +213,7 @@ function run() {
         to: email,
         subject: `Invitation received`,
         html: `
-        <p>You have been invitated to join the following subject of the class.</p>
+        <p>You have been invitated to join the following class of European Grammar School personalized E-learning Platform as ${role}</p>
         <p>Class: <strong>${classTitle}</strong>.</p>
         <p>Subject: <strong>${subjectTitle}</strong>.</p>
         <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
@@ -221,7 +221,7 @@ function run() {
       };
 
       const result = await transporter.sendMail(mailOptions);
-      res.send({ success: true, message: "Message Sent", data: result });
+      res.send({ success: true, message: "Invitation Sent! ", data: result });
     });
 
     // accepting invitation
@@ -277,6 +277,7 @@ function run() {
     app.get("/class/:classId/my-subject/:email", async (req, res) => {
       const email = req?.params?.email;
       const classId = req?.params?.classId;
+      console.log(email, classId);
       const result = await MembershipCollection.find({
         email,
         classId,
@@ -284,6 +285,33 @@ function run() {
       res.send({
         success: true,
         message: "Classes found",
+        data: result,
+      });
+    });
+
+    // getting specific membership with email
+    app.get("/membership/single/:email", async (req, res) => {
+      const email = req?.params?.email;
+      const result = await MembershipCollection.findOne({ email });
+
+      res.send({
+        success: true,
+        message: "Membership found",
+        data: result,
+      });
+    });
+
+    // getting student list from membership
+    app.get("/subject/:subjectId/students", async (req, res) => {
+      const subjectId = req?.params?.subjectId;
+      const result = await MembershipCollection.find({
+        subjectId,
+        role: "student",
+      }).toArray();
+
+      res.send({
+        success: true,
+        message: "Students found",
         data: result,
       });
     });
