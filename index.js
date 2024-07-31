@@ -332,7 +332,9 @@ function run() {
         return res.send({ success: false, message: "Something went wrong" });
       }
 
-      const result = await cloudinary.v2.uploader.upload(file.path);
+      const result = await cloudinary.v2.uploader.upload(file.path, {
+        resource_type: "raw",
+      });
       res.send({
         success: true,
         message: "Successfully Uploaded",
@@ -613,6 +615,66 @@ function run() {
         data: attendence,
       });
     });
+
+    // generating student report
+    app.get(
+      "/class/:classId/subject/:subjectId/students/:studentEmail/report",
+      async (req, res) => {
+        const { classId, subjectId, studentEmail } = req?.params;
+
+        // studen user
+        const user = await UsersCollection.findOne({ email: studentEmail });
+        if (!user) {
+          res.send({
+            success: false,
+            message: "Student does not exist!",
+            data: null,
+          });
+        }
+
+        // subjects
+        const subject = await SubjectsCollection.findOne({
+          _id: new ObjectId(subjectId),
+        });
+        // classworks
+        const classWorks = await ClassWorkSubmissionCollection.find({
+          studentEmail,
+          subjectId,
+        })
+          .project({
+            mark: 1,
+            submissionText: 1,
+            instructionText: 1,
+            submissionDate: 1,
+            date: 1,
+          })
+          .toArray();
+        // all attendence
+        const allAttendence = await AttendenceCollection.find({
+          subjectId,
+        }).toArray();
+
+        let attendence = [];
+
+        await allAttendence?.forEach((singleAttendence) => {
+          const ObjKeys = Object.keys(singleAttendence);
+          ObjKeys?.forEach((key) => {
+            if (key == user?._id) {
+              attendence.push({
+                date: singleAttendence?.date,
+                status: singleAttendence[key],
+              });
+            }
+          });
+        });
+
+        res.send({
+          success: true,
+          message: "Report Found!",
+          data: { subject, classWorks, attendence, user },
+        });
+      }
+    );
 
     // end of routes
   } catch (err) {
