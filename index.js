@@ -209,7 +209,7 @@ function run() {
       });
 
       const mailOptions = {
-        from: "safwanridwan321@gmail.com",
+        from: "mohammadarafathossainahad@gmail.com",
         to: email,
         subject: `Invitation received`,
         html: `
