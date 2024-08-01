@@ -334,6 +334,7 @@ function run() {
 
       const result = await cloudinary.v2.uploader.upload(file.path, {
         resource_type: "raw",
+        format: "pdf",
       });
       res.send({
         success: true,
