@@ -216,7 +216,7 @@ function run() {
         <p>You have been invitated to join the following class of European Grammar School personalized E-learning Platform as ${role}</p>
         <p>Class: <strong>${classTitle}</strong>.</p>
         <p>Subject: <strong>${subjectTitle}</strong>.</p>
-        <a href="http://localhost:5173/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
+        <a href="https://egspep.web.app/accept-invitation/${classId}/${subjectId}/${email}/${role}">Accept Invitation</a>
       `,
       };
 
