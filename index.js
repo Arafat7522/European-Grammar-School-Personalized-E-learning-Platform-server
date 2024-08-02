@@ -564,6 +564,7 @@ function run() {
 
       const alreadyExist = await AttendenceCollection.findOne({
         date: req?.body?.date,
+        subjectId,
       });
       if (alreadyExist) {
         return res.send({
